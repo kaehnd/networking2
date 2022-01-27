@@ -1,12 +1,13 @@
-// Simple TCP echo server
+/**
+ * httpServer.cpp
+ * Author: Daniel Kaeh (using starting code by Dr. Rothe)
+ * Description: Implements main routine of simple HTTP server supporting
+ * 		"GET" requests only, displaying a 404 page if the path wasn't found.
+ * 
+ */  
 
-#include <stdio.h>      
-#include <stdlib.h>     
 #include <unistd.h>  
-#include <string.h>	
-#include <sys/types.h>  
-#include <sys/socket.h> 
-#include <netinet/in.h> 
+#include <cstring>
 #include <arpa/inet.h>  
 #include <pthread.h>
 #include <memory>
@@ -16,7 +17,7 @@
 #include <vector>
 #include <iterator>
 #include <map>
-#include "poll.h"
+#include <poll.h>
 #include <filesystem>
 
 // Max message to echo
@@ -32,6 +33,11 @@ static const std::map< std::string, std::string > mime_types {
   {".gif", "image/gif"}
 };
 
+
+// void pollHttpMessage(int connection)
+// {
+
+// }
 
 void*  tcpThread(void * arg)
 {
@@ -55,7 +61,7 @@ void*  tcpThread(void * arg)
 
 		if (ret == -1)
 		{
-			perror ("Error polling");
+			std::perror ("Error polling");
 			pthread_exit(NULL);
 		}
 		if (ret == 0)
@@ -70,7 +76,7 @@ void*  tcpThread(void * arg)
 					
 		if (bytes_read == 0)
 		{	// socket closed
-			printf("====Client Disconnected====\n");
+			std::cout <<"====Client Disconnected====" << std::endl;
 			close(connection);
 			pthread_exit(NULL);  // break the inner while loop
 		}
@@ -190,7 +196,7 @@ void*  tcpThread(void * arg)
 		// send it back to client
 		if ( (echoed = write(connection, outputBuf.data(), outputBuf.size())) < 0 )
 		{
-			perror("Error sending response");
+			std::perror("Error sending response");
 			pthread_exit(NULL);
 		}
 		else
@@ -203,7 +209,7 @@ void*  tcpThread(void * arg)
 
 		if (!keepAlive)
 		{
-			printf("====Server Disconnecting====\n");
+			std::cout << "====Server Disconnecting====" << std::endl;
 			close(connection);
 			pthread_exit(NULL);  // break the inner while loop		
 		}
@@ -215,33 +221,40 @@ void*  tcpThread(void * arg)
 
 
 
-int main(int argc, char** argv) {
-
+int main(int argc, char** argv) 
+{
 	// locals
 	unsigned short port = 80; // default port
 	int sock; // socket descriptor
 
 	// Was help requested?  Print usage statement
-	if (argc > 1 && ((!strcmp(argv[1],"-?"))||(!strcmp(argv[1],"-h"))))
+
+	if (argc > 1)
 	{
-		printf("\nUsage: tcpechoserver [-p port] port is the requested \
- port that the server monitors.  If no port is provided, the server \
- listens on port 80.\n\n");
-		exit(0);
-	}
-	
-	// get the port from ARGV
-	if (argc > 1 && !strcmp(argv[1],"-p"))
-	{
-		if (sscanf(argv[2],"%hu",&port)!=1)
+		std::string arg1(argv[1]);
+		if (arg1 == "-?" || arg1 =="-h")
 		{
-			perror("Error parsing port option");
-			exit(0);
+			std::cout << std::endl << "Usage: tcpechoserver [-p port] port is the requested \
+                port that the server monitors.  If no port is provided, the server \
+                listens on port 80." 
+                << std::endl << std::endl;
+			std::exit(0);
+		}
+		
+		// get the port from ARGV
+		if (arg1 =="-p")
+		{
+			if (sscanf(argv[2],"%hu",&port)!=1)
+			{
+				std::perror("Error parsing port option");
+				std::exit(0);
+			}
 		}
 	}
+
 	
 	// ready to go
-	printf("tcp echo server configuring on port: %d\n",port);
+	std::cout << "tcp echo server configuring on port:"<< port << std::endl;
 	
 	// for TCP, we want IP protocol domain (PF_INET)
 	// and TCP transport type (SOCK_STREAM)
@@ -249,8 +262,8 @@ int main(int argc, char** argv) {
 	
 	if ((sock = socket( PF_INET, SOCK_STREAM, 0 )) < 0) 
 	{
-		perror("Error on socket creation");
-		exit(1);
+		std::perror("Error on socket creation");
+		std::exit(1);
 	}
   
   	// lose the pesky "Address already in use" error message
@@ -258,8 +271,8 @@ int main(int argc, char** argv) {
 
 	if (setsockopt(sock,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(int)) == -1) 
 	{
-		perror("setsockopt");
-		exit(1);
+		std::perror("setsockopt");
+		std::exit(1);
 	}
 
 	// establish address - this is the server and will
@@ -277,16 +290,16 @@ int main(int argc, char** argv) {
 	// we must now bind the socket descriptor to the address info
 	if (bind(sock, (struct sockaddr *) &sock_address, sizeof(sock_address))<0)
 	{
-		perror("Problem binding");
-		exit(-1);
+		std::perror("Problem binding");
+		std::exit(-1);
 	}
 	
 	// extra step to TCP - listen on the port for a connection
 	// willing to queue 5 connection requests
 	if ( listen(sock, 5) < 0 ) 
 	{
-		perror("Error calling listen()");
-		exit(-1);
+		std::perror("Error calling listen()");
+		std::exit(-1);
 	}
 
 	// go into forever loop and echo whatever message is received
@@ -296,17 +309,18 @@ int main(int argc, char** argv) {
 	
 	pthread_t dontcare;
 
-    while (1) {
-				
-		// hang in accept and wait for connection
-		printf("====Waiting====\n");
-		if ( (connection = accept(sock, NULL, NULL) ) < 0 ) 
+    while (1) 
 		{
-			perror("Error calling accept");
-			exit(-1);
-		}		
-		pthread_create(&dontcare, NULL, tcpThread, &connection);
-		// ready to r/w - another loop - it will be broken when
+				
+			// hang in accept and wait for connection
+			std::cout<<"====Waiting===="<<std::endl;
+			if ( (connection = accept(sock, NULL, NULL) ) < 0 ) 
+			{
+				std::perror("Error calling accept");
+				std::exit(-1);
+			}		
+			pthread_create(&dontcare, NULL, tcpThread, &connection);
+			// ready to r/w - another loop - it will be broken when
     }	// end of outer loop
 
 	// will never get here
